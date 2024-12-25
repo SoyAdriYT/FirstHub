@@ -1,9 +1,10 @@
-local a = game:GetService("Players")
-local b = game:GetService("RunService")
-local c = a.LocalPlayer
-local d = workspace.CurrentCamera
-local e = {}
-local f = {
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local CurrentCamera = workspace.CurrentCamera
+local Drawings = {}
+
+local SkeletonParts = {
     {"Head", "UpperTorso"},
     {"UpperTorso", "RightUpperArm"},
     {"RightUpperArm", "RightLowerArm"},
@@ -19,7 +20,8 @@ local f = {
     {"RightUpperLeg", "RightLowerLeg"},
     {"RightLowerLeg", "RightFoot"}
 }
-local g = {
+
+local Settings = {
     BoxOutlineColor = Color3.new(0, 0, 0),
     BoxColor = Color3.new(1, 1, 1),
     NameColor = Color3.new(1, 1, 1),
@@ -27,7 +29,7 @@ local g = {
     HealthHighColor = Color3.new(0, 1, 0),
     HealthLowColor = Color3.new(1, 0, 0),
     CharSize = Vector2.new(4, 6),
-    Teamcheck = false,
+    TeamCheck = false,
     WallCheck = false,
     Enabled = false,
     ShowBox = false,
@@ -42,52 +44,59 @@ local g = {
     SkeletonsColor = Color3.new(1, 1, 1),
     TracerPosition = "Bottom"
 }
-local function h(i, j)
-    local k = Drawing.new(i)
-    for l, m in pairs(j) do
-        k[l] = m
+
+local function CreateDrawing(type, properties)
+    local drawing = Drawing.new(type)
+    for property, value in pairs(properties) do
+        drawing[property] = value
     end
-    return k
+    return drawing
 end
-local function n(o)
-    local p = {
-        tracer = h("Line", {Thickness = g.TracerThickness, Color = g.TracerColor, Transparency = 0.5}),
-        boxOutline = h("Square", {Color = g.BoxOutlineColor, Thickness = 3, Filled = false}),
-        box = h("Square", {Color = g.BoxColor, Thickness = 1, Filled = false}),
-        name = h("Text", {Color = g.NameColor, Outline = true, Center = true, Size = 13}),
-        healthOutline = h("Line", {Thickness = 3, Color = g.HealthOutlineColor}),
-        health = h("Line", {Thickness = 1}),
-        distance = h("Text", {Color = Color3.new(1, 1, 1), Size = 12, Outline = true, Center = true}),
-        tracer = h("Line", {Thickness = g.TracerThickness, Color = g.TracerColor, Transparency = 1}),
-        boxLines = {}
+
+local function InitializeDrawings(player)
+    local visuals = {
+        tracer = CreateDrawing("Line", {Thickness = Settings.TracerThickness, Color = Settings.TracerColor, Transparency = 0.5}),
+        boxOutline = CreateDrawing("Square", {Color = Settings.BoxOutlineColor, Thickness = 3, Filled = false}),
+        box = CreateDrawing("Square", {Color = Settings.BoxColor, Thickness = 1, Filled = false}),
+        name = CreateDrawing("Text", {Color = Settings.NameColor, Outline = true, Center = true, Size = 13}),
+        healthOutline = CreateDrawing("Line", {Thickness = 3, Color = Settings.HealthOutlineColor}),
+        health = CreateDrawing("Line", {Thickness = 1}),
+        distance = CreateDrawing("Text", {Color = Color3.new(1, 1, 1), Size = 12, Outline = true, Center = true}),
+        skeletonLines = {}
     }
-    e[o] = p
-    e[o]["skeletonlines"] = {}
+    Drawings[player] = visuals
 end
-local function q(o)
-    local r = o.Character
-    if not r then
-        return false
-    end
-    local s = r:FindFirstChild("HumanoidRootPart")
-    if not s then
-        return false
-    end
-    local t =
-        Ray.new(d.CFrame.Position, (s.Position - d.CFrame.Position).Unit * (s.Position - d.CFrame.Position).Magnitude)
-    local u, v = workspace:FindPartOnRayWithIgnoreList(t, {c.Character, r})
-    return u and u:IsA("Part")
+
+local function CanSeePlayer(player)
+    local character = player.Character
+    if not character then return false end
+
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return false end
+
+    local direction = (humanoidRootPart.Position - CurrentCamera.CFrame.Position).Unit
+    local ray = Ray.new(CurrentCamera.CFrame.Position, direction * (humanoidRootPart.Position - CurrentCamera.CFrame.Position).Magnitude)
+
+    local hitPart, _ = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character, character})
+    return hitPart and hitPart:IsA("Part")
 end
-local function w(o)
-    local p = e[o]
-    if not p then
-        return
+
+local function CleanupDrawings(player)
+    local visuals = Drawings[player]
+    if visuals then
+        for _, drawing in pairs(visuals) do
+            if typeof(drawing) == "table" then
+                for _, line in pairs(drawing) do
+                    line:Remove()
+                end
+            else
+                drawing:Remove()
+            end
+        end
+        Drawings[player] = nil
     end
-    for x, k in pairs(p) do
-        k:Remove()
-    end
-    e[o] = nil
 end
+
 local function y()
     for o, p in pairs(e) do
         local r, z = o.Character, o.Team
@@ -101,10 +110,7 @@ local function y()
                 local v, E = d:WorldToViewportPoint(s.Position)
                 if E then
                     local F = d:WorldToViewportPoint(s.Position)
-                    local G =
-                        (d:WorldToViewportPoint(s.Position - Vector3.new(0, 3, 0)).Y -
-                        d:WorldToViewportPoint(s.Position + Vector3.new(0, 2.6, 0)).Y) /
-                        2
+                    local G = (d:WorldToViewportPoint(s.Position - Vector3.new(0, 3, 0)).Y - d:WorldToViewportPoint(s.Position + Vector3.new(0, 2.6, 0)).Y) / 2
                     local H = Vector2.new(math.floor(G * 1.8), math.floor(G * 1.9))
                     local I = Vector2.new(math.floor(F.X - G * 1.8 / 2), math.floor(F.Y - G * 1.6 / 2))
                     if g.ShowName and g.Enabled then
@@ -196,11 +202,7 @@ local function y()
                         p.healthOutline.From = Vector2.new(I.X - 6, I.Y + H.Y)
                         p.healthOutline.To = Vector2.new(p.healthOutline.From.X, p.healthOutline.From.Y - H.Y)
                         p.health.From = Vector2.new(I.X - 5, I.Y + H.Y)
-                        p.health.To =
-                            Vector2.new(
-                            p.health.From.X,
-                            p.health.From.Y - o.Character.Humanoid.Health / o.Character.Humanoid.MaxHealth * H.Y
-                        )
+                        p.health.To = Vector2.new(p.health.From.X, p.health.From.Y - o.Character.Humanoid.Health / o.Character.Humanoid.MaxHealth * H.Y)
                         p.health.Color = g.HealthLowColor:Lerp(g.HealthHighColor, Q)
                     else
                         p.healthOutline.Visible = false
@@ -264,66 +266,42 @@ local function y()
                     else
                         p.tracer.Visible = false
                     end
-                else
-                    for x, k in pairs(p) do
-                        k.Visible = false
-                    end
-                    for x, W in ipairs(p["skeletonlines"]) do
-                        local V = W[1]
-                        V:Remove()
-                    end
-                    p["skeletonlines"] = {}
-                    for x, J in ipairs(p.boxLines) do
-                        J:Remove()
-                    end
-                    p.boxLines = {}
                 end
             else
-                for x, k in pairs(p) do
-                    k.Visible = false
+                p.box.Visible = false
+                p.boxOutline.Visible = false
+                p.name.Visible = false
+                for x, J in ipairs(p.boxLines) do
+                    J:Remove()
                 end
                 for x, W in ipairs(p["skeletonlines"]) do
                     local V = W[1]
                     V:Remove()
                 end
-                p["skeletonlines"] = {}
-                for x, J in ipairs(p.boxLines) do
-                    J:Remove()
-                end
                 p.boxLines = {}
+                p["skeletonlines"] = {}
+                p.distance.Visible = false
+                p.tracer.Visible = false
             end
-        else
-            for x, k in pairs(p) do
-                k.Visible = false
-            end
-            for x, W in ipairs(p["skeletonlines"]) do
-                local V = W[1]
-                V:Remove()
-            end
-            p["skeletonlines"] = {}
-            for x, J in ipairs(p.boxLines) do
-                J:Remove()
-            end
-            p.boxLines = {}
         end
     end
 end
-for x, o in ipairs(a:GetPlayers()) do
+
+for _, o in ipairs(a:GetPlayers()) do
     if o ~= c then
         n(o)
     end
 end
-a.PlayerAdded:Connect(
-    function(o)
-        if o ~= c then
-            n(o)
-        end
+
+a.PlayerAdded:Connect(function(o)
+    if o ~= c then
+        n(o)
     end
-)
-a.PlayerRemoving:Connect(
-    function(o)
-        w(o)
-    end
-)
+end)
+
+a.PlayerRemoving:Connect(function(o)
+    w(o)
+end)
+
 b.RenderStepped:Connect(y)
 return g
