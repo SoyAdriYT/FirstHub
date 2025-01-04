@@ -38,7 +38,7 @@ local j = {
     Options = {},
     Flags = {},
     Tabs = {},
-    Icons = loadstring(game:HttpGet("https://raw.githubusercontent.com/SoyAdriYT/FirstHubUI/refs/heads/main/FirstScripts/Icons.lua"))()
+    Icons = loadstring(game:HttpGet("https://raw.githubusercontent.com/SoyAdriYT/FirstHub/refs/heads/main/FirstScripts/Icons.lua"))()
 }
 local k = workspace.CurrentCamera.ViewportSize
 local l = k.Y / 450
